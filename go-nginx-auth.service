@@ -1,0 +1,16 @@
+[Unit]
+Description=NGINX Auth replacement daemon for CERNBox
+After=syslog.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/var/log/go-nginx-auth
+ExecStart=/usr/local/bin/go-nginx-auth
+StandardOutput=null
+StandardError=syslog
+
+[Install]
+WantedBy=multi-user.target
+

@@ -1,0 +1,5 @@
+port: 2020
+bindusername: testuser
+bindpassword: testpassword
+httplog: /var/log/go-nginx-auth/go-nginx-auth_http.log
+applog: /var/log/go-nginx-auth/go-nginx-auth_app.log
