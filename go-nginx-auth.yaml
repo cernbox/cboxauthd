@@ -1,5 +1,9 @@
 port: 2020
+bindhostname: example.org
+bindport: 636
 bindusername: testuser
 bindpassword: testpassword
+basedn: "OU=Users,DC=example,DC=org"
+filter: "(samaccountname=%s)"
 httplog: /var/log/go-nginx-auth/go-nginx-auth_http.log
 applog: /var/log/go-nginx-auth/go-nginx-auth_app.log
