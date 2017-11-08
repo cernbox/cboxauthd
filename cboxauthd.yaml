@@ -5,5 +5,5 @@ bindusername: testuser
 bindpassword: testpassword
 basedn: "OU=Users,DC=example,DC=org"
 filter: "(samaccountname=%s)"
-httplog: /var/log/go-nginx-auth/go-nginx-auth_http.log
-applog: /var/log/go-nginx-auth/go-nginx-auth_app.log
+httplog: /var/log/cboxauthd/cboxauthd_http.log
+applog: /var/log/cboxauthd/cboxauthd_app.log

@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/cernbox/go-nginx-auth/pkg"
+	"github.com/cernbox/cboxauthd/pkg"
 	"gopkg.in/ldap.v2"
 )
 

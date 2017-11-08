@@ -1,10 +1,10 @@
-# go-nginx-auth daemon
+# cboxauthd daemon
 
 This daemon performs authentication against LDAP for basic auth requests.
 
 ```
-$ ./go-nginx-auth -h
-Usage of ./go-nginx-auth:
+$ ./cboxauthd -h
+Usage of ./cboxauthd:
       --applog string             File to log application data (default "stderr")
       --config string             Configuration file to use
       --httplog string            File to log HTTP requests (default "stderr")

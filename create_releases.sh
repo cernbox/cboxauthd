@@ -13,7 +13,7 @@
 set -euo pipefail
 
 : ${output_filename:="${1:-}"}
-: ${output_filename:="go-nginx-auth"}
+: ${output_filename:="cboxauthd"}
 
 : ${git_repo:="${2:-}"}
 : ${git_repo:="."}

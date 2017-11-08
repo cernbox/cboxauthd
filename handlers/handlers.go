@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cernbox/go-nginx-auth/pkg"
+	"github.com/cernbox/cboxauthd/pkg"
 
 	"github.com/dgrijalva/jwt-go"
 	"go.uber.org/zap"
@@ -31,14 +31,14 @@ func CheckAuth(logger *zap.Logger, userBackend pkg.UserBackend, signingKey strin
 		u, p, ok := r.BasicAuth()
 		if !ok {
 			logger.Warn("no basic auth provided")
-			w.Header().Set("WWW-Authenticate", "Basic Realm='go-nginx-auth credentials'")
+			w.Header().Set("WWW-Authenticate", "Basic Realm='cboxauthd credentials'")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		if u == "" || p == "" {
 			logger.Warn("empty basic auth credentials")
-			w.Header().Set("WWW-Authenticate", "Basic Realm='go-nginx-auth credentials'")
+			w.Header().Set("WWW-Authenticate", "Basic Realm='cboxauthd credentials'")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -48,13 +48,13 @@ func CheckAuth(logger *zap.Logger, userBackend pkg.UserBackend, signingKey strin
 			if ube, ok := err.(pkg.UserBackendError); ok {
 				if ube.Code == pkg.UserBackendErrorNotFound {
 					logger.Warn("user not found", zap.String("username", u))
-					w.Header().Set("WWW-Authenticate", "Basic Realm='go-nginx-auth credentials'")
+					w.Header().Set("WWW-Authenticate", "Basic Realm='cboxauthd credentials'")
 					w.WriteHeader(http.StatusUnauthorized)
 					return
 				}
 			}
 			logger.Error("authentication failed", zap.Error(err), zap.String("username", u))
-			w.Header().Set("WWW-Authenticate", "Basic Realm='go-nginx-auth credentials'")
+			w.Header().Set("WWW-Authenticate", "Basic Realm='cboxauthd credentials'")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}

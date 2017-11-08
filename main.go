@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/cernbox/go-nginx-auth/handlers"
-	"github.com/cernbox/go-nginx-auth/pkg/ldapuserbackend"
+	"github.com/cernbox/cboxauthd/handlers"
+	"github.com/cernbox/cboxauthd/pkg/ldapuserbackend"
 	gh "github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/spf13/pflag"
@@ -38,8 +38,8 @@ func init() {
 	viper.SetDefault("applog", "stderr")
 	viper.SetDefault("httplog", "stderr")
 
-	viper.SetConfigName("go-nginx-auth")
-	viper.AddConfigPath("/etc/go-nginx-auth/")
+	viper.SetConfigName("cboxauthd")
+	viper.AddConfigPath("/etc/cboxauthd/")
 
 	flag.BoolVar(&fVersion, "version", false, "Show version")
 	flag.Int("port", 2020, "Port to listen for connections")

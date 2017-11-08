@@ -1,4 +1,4 @@
-/var/log/go-nginx-auth/go-nginx-auth_http.log {
+/var/log/cboxauthd/cboxauthd_http.log {
     daily
     rotate 365
     copytruncate
@@ -8,7 +8,7 @@
     missingok
 }
 
-/var/log/go-nginx-auth/go-nginx-auth_app.log {
+/var/log/cboxauthd/cboxauthd_app.log {
     daily
     rotate 365
     copytruncate

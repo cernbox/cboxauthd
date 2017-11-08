@@ -6,8 +6,8 @@ After=syslog.target
 Type=simple
 User=root
 Group=root
-WorkingDirectory=/var/log/go-nginx-auth
-ExecStart=/usr/local/bin/go-nginx-auth
+WorkingDirectory=/var/log/cboxauthd
+ExecStart=/usr/local/bin/cboxauthd
 StandardOutput=null
 StandardError=syslog
 

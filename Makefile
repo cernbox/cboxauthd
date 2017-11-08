@@ -1,4 +1,4 @@
-FILES_TO_RPM = go-nginx-auth go-nginx-auth.yaml go-nginx-auth.service go-nginx-auth.logrotate
+FILES_TO_RPM = cboxauthd cboxauthd.yaml cboxauthd.service cboxauthd.logrotate
 SPECFILE = $(shell find . -type f -name *.spec)
 PACKAGE  = $(shell awk '$$1 == "Name:"     { print $$2 }' $(SPECFILE) )
 VERSION  = $(shell awk '$$1 == "Version:"  { print $$2 }' $(SPECFILE) )
@@ -17,7 +17,7 @@ rpmdefines=--define='_topdir ${rpmbuild}' \
         --define='_rpmdir %{_topdir}/RPMS'
 
 dist: clean
-	go get -u ./...
+	glide install
 	go build 
 	@mkdir -p $(PACKAGE)-$(VERSION)
 	@cp -r $(FILES_TO_RPM) $(PACKAGE)-$(VERSION)
