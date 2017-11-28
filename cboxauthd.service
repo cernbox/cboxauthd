@@ -1,5 +1,5 @@
 [Unit]
-Description=NGINX Auth replacement daemon for CERNBox
+Description=Authentication daemon for CERNBox
 After=syslog.target
 
 [Service]

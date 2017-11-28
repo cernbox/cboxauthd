@@ -1,4 +1,4 @@
-port: 2020
+port: 2004
 bindhostname: example.org
 bindport: 636
 bindusername: testuser
