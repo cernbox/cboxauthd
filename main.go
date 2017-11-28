@@ -37,6 +37,8 @@ func init() {
 	viper.SetDefault("signingkey", "change me!!!")
 	viper.SetDefault("applog", "stderr")
 	viper.SetDefault("httplog", "stderr")
+	viper.SetDefault("expiretime", 3600)
+	viper.SetDefault("owncloudcookiename", "oc_sessionpassphrase")
 
 	viper.SetConfigName("cboxauthd")
 	viper.AddConfigPath("/etc/cboxauthd/")
@@ -53,6 +55,8 @@ func init() {
 	flag.String("applog", "stderr", "File to log application data")
 	flag.String("httplog", "stderr", "File to log HTTP requests")
 	flag.String("config", "", "Configuration file to use")
+	flag.Int("expiretime", 3600, "Time in seconds the jwt/cookie will be valid")
+	flag.String("owncloudcookiename", "oc_sessionpassphrase", "Cookie to store the auth session in the client")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
@@ -81,7 +85,7 @@ func main() {
 	router := mux.NewRouter()
 
 	ub := ldapuserbackend.New(viper.GetString("ldaphostname"), viper.GetInt("ldapport"), viper.GetString("ldapbasedn"), viper.GetString("ldapfilter"), viper.GetString("ldapbindusername"), viper.GetString("ldapbindpassword"))
-	authHandler := handlers.CheckAuth(logger, ub, viper.GetString("signingkey"))
+	authHandler := handlers.CheckAuth(logger, ub, viper.GetString("signingkey"), viper.GetInt("expiretime"), viper.GetString("owncloudcookiename"))
 
 	router.Handle("/api/v1/auth", authHandler).Methods("GET")
 

@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func CheckAuth(logger *zap.Logger, userBackend pkg.UserBackend, signingKey string) http.Handler {
+func CheckAuth(logger *zap.Logger, userBackend pkg.UserBackend, signingKey string, expireTime int, owncloudCookieName string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// try to validate token if set on the cookie
 		authCookie, err := r.Cookie("oc_sessionpassphrase")
@@ -60,16 +60,20 @@ func CheckAuth(logger *zap.Logger, userBackend pkg.UserBackend, signingKey strin
 		}
 
 		// user is authenticated using basic auth so we can cache it in a JWT token
+		expiration := time.Now().Add(time.Second * time.Duration(expireTime))
 		token := jwt.New(jwt.GetSigningMethod("HS256"))
 		claims := token.Claims.(jwt.MapClaims)
 		claims["username"] = u
-		claims["exp"] = time.Now().Add(time.Second * 3600).UnixNano() // TODO(labkode): expire data in config
+		claims["exp"] = expiration.UnixNano() // TODO(labkode): expire data in config
 		tokenString, _ := token.SignedString([]byte(signingKey))
 
-		// store jwt token in cookie header
-		cookie := &http.Cookie{}
-		cookie.Name = "oc_sessionpassphrase"
-		cookie.Value = tokenString
+		// store jwt token in cookie
+		cookie := &http.Cookie{
+			Name:   owncloudCookieName,
+			Value:  tokenString,
+			Path:   "/",
+			MaxAge: expiration.Second(),
+		}
 		http.SetCookie(w, cookie)
 
 		w.WriteHeader(http.StatusOK)
