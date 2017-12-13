@@ -54,7 +54,7 @@ rm -rf %buildroot/
 
 
 %changelog
-* Wed 13 2017 Hugo Gonzalez Labrador <hugo.gonzalez.labrador@cern.ch> 1.0.1
+* Wed Dec 13 2017 Hugo Gonzalez Labrador <hugo.gonzalez.labrador@cern.ch> 1.0.1
 - Fix expiration time
 * Thu Nov 28 2017 Hugo Gonzalez Labrador <hugo.gonzalez.labrador@cern.ch> 1.0.0
 - v1.0.0
