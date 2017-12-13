@@ -64,8 +64,15 @@ func CheckAuth(logger *zap.Logger, userBackend pkg.UserBackend, signingKey strin
 		token := jwt.New(jwt.GetSigningMethod("HS256"))
 		claims := token.Claims.(jwt.MapClaims)
 		claims["username"] = u
-		claims["exp"] = expiration.UnixNano() // TODO(labkode): expire data in config
-		tokenString, _ := token.SignedString([]byte(signingKey))
+		claims["exp"] = expiration.Unix()
+		tokenString, err := token.SignedString([]byte(signingKey))
+		if err != nil {
+			logger.Warn("cannot sign token", zap.Error(err))
+			w.Header().Set("WWW-Authenticate", "Basic Realm='cboxauthd credentials'")
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		logger.Info("token generated", zap.String("username", u), zap.Int64("exp", expiration.Unix()))
 
 		// store jwt token in cookie
 		cookie := &http.Cookie{
