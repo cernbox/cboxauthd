@@ -12,22 +12,24 @@ import (
 
 func CheckAuth(logger *zap.Logger, userBackend pkg.UserBackend, signingKey string, expireTime int, owncloudCookieName string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger.Debug("checking if cookie is present", zap.String("cookiename", owncloudCookieName))
 		// try to validate token if set on the cookie
-		authCookie, err := r.Cookie("oc_sessionpassphrase")
+		authCookie, err := r.Cookie(owncloudCookieName)
 		if err == nil {
+			logger.Debug("cookie was present")
 			// validate that the jwt token in the cookie is valid
 			_, err = jwt.Parse(authCookie.Value, func(token *jwt.Token) (interface{}, error) {
 				return []byte(signingKey), nil
 			})
 			if err == nil {
-				// the token set in the cookie is valid
+				logger.Debug("token in cookie is still valid")
 				w.WriteHeader(http.StatusOK)
 				return
 			}
 			logger.Warn("token in cookie no longer valid")
 		}
 
-		// try to get credentials using basic auth
+		logger.Debug("cookie was not set, trying basic auth")
 		u, p, ok := r.BasicAuth()
 		if !ok {
 			logger.Warn("no basic auth provided")
@@ -36,6 +38,7 @@ func CheckAuth(logger *zap.Logger, userBackend pkg.UserBackend, signingKey strin
 			return
 		}
 
+		logger.Debug("basic auth was provided, checking credentials are not empty")
 		if u == "" || p == "" {
 			logger.Warn("empty basic auth credentials")
 			w.Header().Set("WWW-Authenticate", "Basic Realm='cboxauthd credentials'")
@@ -43,6 +46,7 @@ func CheckAuth(logger *zap.Logger, userBackend pkg.UserBackend, signingKey strin
 			return
 		}
 
+		logger.Debug("credentials were not empty, checking credentials on the backend")
 		err = userBackend.Authenticate(r.Context(), u, p)
 		if err != nil {
 			if ube, ok := err.(pkg.UserBackendError); ok {
@@ -59,6 +63,7 @@ func CheckAuth(logger *zap.Logger, userBackend pkg.UserBackend, signingKey strin
 			return
 		}
 
+		logger.Debug("user has been authenticated", zap.String("username", u))
 		// user is authenticated using basic auth so we can cache it in a JWT token
 		expiration := time.Now().Add(time.Second * time.Duration(expireTime))
 		token := jwt.New(jwt.GetSigningMethod("HS256"))
@@ -72,17 +77,16 @@ func CheckAuth(logger *zap.Logger, userBackend pkg.UserBackend, signingKey strin
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		logger.Info("token generated", zap.String("username", u), zap.Int64("exp", expiration.Unix()))
+		logger.Info("token generated", zap.String("username", u), zap.Int64("exp", expiration.Unix()), zap.Int("max-age", expireTime))
 
 		// store jwt token in cookie
 		cookie := &http.Cookie{
 			Name:   owncloudCookieName,
 			Value:  tokenString,
 			Path:   "/",
-			MaxAge: expiration.Second(),
+			MaxAge: expireTime,
 		}
 		http.SetCookie(w, cookie)
-
 		w.WriteHeader(http.StatusOK)
 	})
 }

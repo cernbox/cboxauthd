@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"log"
 	"net/http"
 	"os"
@@ -25,6 +26,7 @@ var (
 )
 
 var fVersion bool
+var logLevel = zapcore.InfoLevel
 
 func init() {
 	viper.SetDefault("port", 2020)
@@ -39,6 +41,7 @@ func init() {
 	viper.SetDefault("httplog", "stderr")
 	viper.SetDefault("expiretime", 3600)
 	viper.SetDefault("owncloudcookiename", "oc_sessionpassphrase")
+	viper.SetDefault("loglevel", "info")
 
 	viper.SetConfigName("cboxauthd")
 	viper.AddConfigPath("/etc/cboxauthd/")
@@ -57,6 +60,7 @@ func init() {
 	flag.String("config", "", "Configuration file to use")
 	flag.Int("expiretime", 3600, "Time in seconds the jwt/cookie will be valid")
 	flag.String("owncloudcookiename", "oc_sessionpassphrase", "Cookie to store the auth session in the client")
+	flag.String("loglevel", "info", "Level to log")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
@@ -78,9 +82,18 @@ func main() {
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
 
+	
+	err = logLevel.UnmarshalText([]byte(viper.GetString("loglevel")))
+	if err != nil {
+		panic(err)
+	}
 	config := zap.NewProductionConfig()
+	config.Level = zap.NewAtomicLevelAt(logLevel)
 	config.OutputPaths = []string{viper.GetString("applog")}
-	logger, _ := config.Build()
+	logger, err := config.Build()
+	if err != nil {
+		panic(err)
+	}
 
 	router := mux.NewRouter()
 
