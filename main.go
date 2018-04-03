@@ -3,26 +3,19 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
+	"net/http"
+	"os"
+
 	"github.com/cernbox/cboxauthd/handlers"
 	"github.com/cernbox/cboxauthd/pkg/ldapuserbackend"
+
 	gh "github.com/gorilla/handlers"
-	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"log"
-	"net/http"
-	"os"
-)
-
-// Build information obtained with the help of -ldflags
-var (
-	appName       string
-	buildDate     string // date -u
-	gitTag        string // git describe --exact-match HEAD
-	gitNearestTag string // git describe --abbrev=0 --tags HEAD
-	gitCommit     string // git rev-parse HEAD
 )
 
 var fVersion bool
@@ -30,6 +23,7 @@ var logLevel = zapcore.InfoLevel
 
 func init() {
 	viper.SetDefault("port", 2020)
+	viper.SetDefault("adminsecret", "doo")
 	viper.SetDefault("ldaphostname", "cerndc.cern.ch")
 	viper.SetDefault("ldapport", 636)
 	viper.SetDefault("ldapbindusername", "testuser")
@@ -44,10 +38,12 @@ func init() {
 	viper.SetDefault("loglevel", "info")
 
 	viper.SetConfigName("cboxauthd")
+	viper.AddConfigPath(".")
 	viper.AddConfigPath("/etc/cboxauthd/")
 
 	flag.BoolVar(&fVersion, "version", false, "Show version")
 	flag.Int("port", 2020, "Port to listen for connections")
+	flag.String("adminsecret", "doo", "Secret to perform admin operations.")
 	flag.String("ldaphostname", "cerndc.cern.ch", "Hostname of the LDAP server")
 	flag.Int("ldapport", 636, "Port of LDAP server")
 	flag.String("ldapbindusername", "CERN\\testuser", "The user to bind to LDAP")
@@ -69,10 +65,6 @@ func init() {
 
 func main() {
 
-	if fVersion {
-		showVersion()
-	}
-
 	if viper.GetString("config") != "" {
 		viper.SetConfigFile(viper.GetString("config"))
 	}
@@ -82,11 +74,11 @@ func main() {
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
 
-	
 	err = logLevel.UnmarshalText([]byte(viper.GetString("loglevel")))
 	if err != nil {
 		panic(err)
 	}
+
 	config := zap.NewProductionConfig()
 	config.Level = zap.NewAtomicLevelAt(logLevel)
 	config.OutputPaths = []string{viper.GetString("applog")}
@@ -95,12 +87,28 @@ func main() {
 		panic(err)
 	}
 
-	router := mux.NewRouter()
+	opt := &ldapuserbackend.Options{
+		Hostname:     viper.GetString("ldaphostname"),
+		Port:         viper.GetInt("ldapport"),
+		BaseDN:       viper.GetString("ldapbasedn"),
+		Filter:       viper.GetString("ldapfilter"),
+		BindUsername: viper.GetString("ldapbindusername"),
+		BindPassword: viper.GetString("ldapbindpassword"),
+		Logger:       logger,
+	}
+	ub := ldapuserbackend.New(opt)
 
-	ub := ldapuserbackend.New(viper.GetString("ldaphostname"), viper.GetInt("ldapport"), viper.GetString("ldapbasedn"), viper.GetString("ldapfilter"), viper.GetString("ldapbindusername"), viper.GetString("ldapbindpassword"))
-	authHandler := handlers.CheckAuth(logger, ub, viper.GetString("signingkey"), viper.GetInt("expiretime"), viper.GetString("owncloudcookiename"))
+	router := http.NewServeMux()
+	authHandler := handlers.BasicAuthOnly(logger, ub, viper.GetString("signingkey"), viper.GetInt("expiretime"), viper.GetString("owncloudcookiename"))
+	dumpHandler := handlers.AdminCheck(logger, viper.GetString("adminsecret"), handlers.DumpCache(logger, ub))
+	expireHandler := handlers.AdminCheck(logger, viper.GetString("adminsecret"), handlers.ExpireCacheEntry(logger, ub))
+	setHandler := handlers.AdminCheck(logger, viper.GetString("adminsecret"), handlers.SetExpiration(logger, ub))
 
-	router.Handle("/api/v1/auth", authHandler).Methods("GET")
+	router.Handle("/api/v1/auth", authHandler)
+	router.Handle("/api/v1/cache/dump", dumpHandler)
+	router.Handle("/api/v1/cache/expire", expireHandler)     // expire?key=john:hash
+	router.Handle("/api/v1/cache/setexpiration", setHandler) // setexpiration?key=john:hash&expiration=1522739593
+	router.Handle("/metrics", promhttp.Handler())
 
 	out := getHTTPLoggerOut(viper.GetString("httplog"))
 	loggedRouter := gh.LoggingHandler(out, router)
@@ -121,14 +129,4 @@ func getHTTPLoggerOut(filename string) *os.File {
 		}
 		return fd
 	}
-}
-
-func showVersion() {
-	// if gitTag is not empty we are on release build
-	if gitTag != "" {
-		fmt.Printf("%s %s commit:%s release-build\n", appName, gitNearestTag, gitCommit)
-		os.Exit(0)
-	}
-	fmt.Printf("%s %s commit:%s dev-build\n", appName, gitNearestTag, gitCommit)
-	os.Exit(0)
 }
