@@ -41,7 +41,6 @@ func init() {
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("/etc/cboxauthd/")
 
-	flag.BoolVar(&fVersion, "version", false, "Show version")
 	flag.Int("port", 2020, "Port to listen for connections")
 	flag.String("adminsecret", "doo", "Secret to perform admin operations.")
 	flag.String("ldaphostname", "cerndc.cern.ch", "Hostname of the LDAP server")
