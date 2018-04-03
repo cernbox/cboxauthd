@@ -4,7 +4,7 @@
 
 Name: cboxauthd
 Summary: Authentication daemon for CERNBox.
-Version: 1.0.1
+Version: 1.1.0
 Release: 1%{?dist}
 License: AGPLv3
 BuildRoot: %{_tmppath}/%{name}-buildroot
@@ -54,6 +54,7 @@ rm -rf %buildroot/
 
 
 %changelog
+* Tue Apr 4 2018 Hugo Gonzalez Labrador <hugo.gonzalez.labrador@cern.ch> 1.1.0
 * Wed Dec 13 2017 Hugo Gonzalez Labrador <hugo.gonzalez.labrador@cern.ch> 1.0.1
 - Fix expiration time
 * Thu Nov 28 2017 Hugo Gonzalez Labrador <hugo.gonzalez.labrador@cern.ch> 1.0.0
