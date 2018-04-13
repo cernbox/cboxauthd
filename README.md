@@ -1,21 +1,32 @@
-# cboxauthd daemon
+# CERNBox Authentication Daemon
+
 
 This daemon performs authentication against LDAP for basic auth requests.
 
 ```
-$ ./cboxauthd -h
 Usage of ./cboxauthd:
-      --applog string             File to log application data (default "stderr")
-      --config string             Configuration file to use
-      --httplog string            File to log HTTP requests (default "stderr")
-      --ldapbasedn string         The base dn to use to talk to LDAP (default "OU=Users,OU=Organic Units,DC=cern,DC=ch")
-      --ldapbindpassword string   The password to bind to LDAP (default "testpassword")
-      --ldapbindusername string   The user to bind to LDAP (default "CERN\\testuser")
-      --ldapfilter string         The filter to use in LDAP queries (default "(samaccountname=%s)")
-      --ldaphostname string       Hostname of the LDAP server (default "cerndc.cern.ch")
-      --ldapport int              Port of LDAP server (default 636)
-      --port int                  Port to listen for connections (default 2020)
-      --version                   Show version
+      --admin-secret string         secreto to access admin APIs for cache manipulation. (default "bar")
+      --app-log string              file to log application information. (default "stderr")
+      --config-file string          configuration file to use
+      --http-log string             file to log HTTP requests. (default "stderr")
+      --http-read-timeout int       the maximum duration for reading the entire request, including the body. (default 300)
+      --http-write-timeout int      the maximum duration for timing out writes of the response. (default 300)
+      --ldap-base-dn string         LDAP base DN. (default "OU=Users,OU=Organic Units,DC=cern,DC=ch")
+      --ldap-base-filter string     LDAP base search filter. (default "(samaccountname=%s)")
+      --ldap-bind-password string   LDAP bind password. (default "bar")
+      --ldap-bind-username string   LDAP bind username. (default "CN=foo,OU=Users,OU=Organic Units,DC=cern,DC=ch")
+      --ldap-cache-ttl int          LDAP cache TTL. (default 86400)
+      --ldap-conn-timeout int       LDAP connection timeout.
+      --ldap-hostname string        LDAP server hostname. (default "localhost")
+      --ldap-port int               LDAP server port. (default 636)
+      --ldap-req-timeout int        LDAP request timeout.
+      --log-level string            log level to use (debug, info, warn, error). (default "info")
+      --safety-sleep int            Seconds to pause requests on authentication failure. (default 5)
+      --show-config                 prints the configuration
+      --show-config-debug           prints the configuration with resolution steps
+      --tcp-address string          tcp address to listen for connections. (default "localhost:9991")
+pflag: help requested
+
 ```
 
 ## Some example requests
