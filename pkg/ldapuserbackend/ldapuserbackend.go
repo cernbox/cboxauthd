@@ -180,7 +180,7 @@ func (ub *userBackend) sleep() {
 func (ub *userBackend) doServiceBind(ctx context.Context, l *ldap.Conn, username, password string) error {
 	err := l.Bind(username, password)
 	if err == nil {
-		ub.logger.Info("BINDING OK", zap.String("USERNAME", username))
+		ub.logger.Info("SERVICE ACCOUNT BINDING OK", zap.String("USERNAME", username))
 		ub.storeInCache(ctx, username, password)
 		return nil
 	}
