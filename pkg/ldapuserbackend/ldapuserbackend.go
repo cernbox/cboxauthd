@@ -92,18 +92,18 @@ func (ub *userBackend) DumpCache(ctx context.Context) (map[string]int64, error) 
 	items := map[string]int64{}
 	ub.cache.Range(func(key interface{}, val interface{}) bool {
 		if len(items) > maxNumEntries {
-			panic(fmt.Sprintf("error dumping cache. the cache contains more than %d items", maxNumEntries))
+			panic(fmt.Sprintf("ERROR DUMPING THE CACHE BECAUSE IT CONTAINS MORE THAN %d ITEMS", maxNumEntries))
 			return false
 		}
 		keyString, ok := key.(string)
 		if !ok {
-			panic(fmt.Sprintf("error dumping cache. key is not a string. key=%+v", key))
+			panic(fmt.Sprintf("ERROR DUMPING CACHE BECAUSE KEY IS NOT A STRING: KEY=%+v", key))
 			return false
 		}
 
 		valInt64, ok := val.(int64)
 		if !ok {
-			panic(fmt.Sprintf("error dumping cache. val is not a int64. val=%+v", val))
+			panic(fmt.Sprintf("ERROR DUMPING CACHE BECAUSE VAL IS NOT A INT64. VAL=%+v", val))
 			return false
 		}
 
@@ -116,12 +116,12 @@ func (ub *userBackend) getKey(ctx context.Context, username, password string) st
 	h := md5.New()
 	_, err := io.WriteString(h, password)
 	if err != nil {
-		ub.logger.Error("cannot write to hash", zap.Error(err))
+		ub.logger.Error("CANNOT COMPUTE HASH", zap.Error(err))
 		panic(err)
 		return ""
 	}
 	key := fmt.Sprintf("%s:%x", username, h.Sum(nil))
-	ub.logger.Debug("cache key", zap.String("key", key))
+	ub.logger.Debug("CACHE KEY", zap.String("KEY", key))
 	return key
 }
 
@@ -177,10 +177,10 @@ func (ub *userBackend) sleep() {
 	time.Sleep(ub.sleepPause)
 }
 
-func (ub *userBackend) doBind(ctx context.Context, l *ldap.Conn, username, password string) error {
+func (ub *userBackend) doServiceBind(ctx context.Context, l *ldap.Conn, username, password string) error {
 	err := l.Bind(username, password)
 	if err == nil {
-		ub.logger.Info("binding ok", zap.String("username", username))
+		ub.logger.Info("BINDING OK", zap.String("USERNAME", username))
 		ub.storeInCache(ctx, username, password)
 		return nil
 	}
@@ -190,21 +190,58 @@ func (ub *userBackend) doBind(ctx context.Context, l *ldap.Conn, username, passw
 	// github.com/go-ldap/ldap/issues/93
 	if len(password) == 0 {
 		ub.sleep()
-		err := pkg.NewUserBackendError(pkg.UserBackendErrorInvalidCredentials).WithMessage(fmt.Sprintf("password is empty", username))
+		err := pkg.NewUserBackendError(pkg.UserBackendErrorInvalidCredentials).WithMessage(fmt.Sprintf("PASSWORD IS EMPTY", username))
 		return err
 	}
 
-	ub.logger.Error("error binding user", zap.Error(err), zap.String("username", username))
+	ub.logger.Error("ERROR BINDING WITH SERVICE ACCOUNT", zap.Error(err), zap.String("ACCOUNT", username))
 	if ldap.IsErrorWithCode(err, ldap.LDAPResultInvalidCredentials) {
 		ub.sleep()
-		err := pkg.NewUserBackendError(pkg.UserBackendErrorInvalidCredentials).WithMessage(fmt.Sprintf("user %s submitted bad credentials", username))
+		ub.logger.Error("SERVICE ACCOUNT CREDENTIALS ARE WRONG: MANUAL ACTION REQUIRED, CHECK SERVICE ACCOUNT STATUS. USING CACHE.")
+		// we still rely on the cache in this case because is a configuration problem from our service, or we have a password expired.
+		if !ub.isCached(ctx, username, password) {
+			err := pkg.NewUserBackendError(pkg.UserBackendErrorInvalidCredentials).WithMessage(fmt.Sprintf("SERVICE ACCOUNT %s NOT FOUND IN THE CACHE", username))
+			return err
+		}
+		return nil
+	}
+
+	ub.logger.Warn("LDAP WENT BANANAS, USING CACHE")
+	if !ub.isCached(ctx, username, password) {
+		err := pkg.NewUserBackendError(pkg.UserBackendErrorInvalidCredentials).WithMessage(fmt.Sprintf("SERVICE ACCOUNT %s NOT FOUND IN THE CACHE", username))
+		return err
+	}
+
+	return nil
+}
+func (ub *userBackend) doBind(ctx context.Context, l *ldap.Conn, username, password string) error {
+	err := l.Bind(username, password)
+	if err == nil {
+		ub.logger.Info("BINDING OK", zap.String("USERNAME", username))
+		ub.storeInCache(ctx, username, password)
+		return nil
+	}
+
+	// check for unauthenticated binding with password empty.
+	// the handler already protects this condition, but just in case
+	// github.com/go-ldap/ldap/issues/93
+	if len(password) == 0 {
+		ub.sleep()
+		err := pkg.NewUserBackendError(pkg.UserBackendErrorInvalidCredentials).WithMessage(fmt.Sprintf("PASSWORD IS EMPTY", username))
+		return err
+	}
+
+	ub.logger.Error("CANNOT BIND USER", zap.Error(err), zap.String("USERNAME", username))
+	if ldap.IsErrorWithCode(err, ldap.LDAPResultInvalidCredentials) {
+		ub.sleep()
+		err := pkg.NewUserBackendError(pkg.UserBackendErrorInvalidCredentials).WithMessage(fmt.Sprintf("USER %s SUBMITTED WRONG CREDENTIALS", username))
 		return err
 
 	}
 
-	ub.logger.Warn("transient error to ldap, fallback to cache")
+	ub.logger.Warn("LDAP WENT BANANAS, USING CACHE")
 	if !ub.isCached(ctx, username, password) {
-		err := pkg.NewUserBackendError(pkg.UserBackendErrorInvalidCredentials).WithMessage(fmt.Sprintf("user %s not found in the cache", username))
+		err := pkg.NewUserBackendError(pkg.UserBackendErrorInvalidCredentials).WithMessage(fmt.Sprintf("USER %s NOT FOUND IN THE CACHE", username))
 		return err
 	}
 
@@ -214,20 +251,21 @@ func (ub *userBackend) doBind(ctx context.Context, l *ldap.Conn, username, passw
 func (ub *userBackend) Authenticate(ctx context.Context, username, password string) error {
 	l, err := ldap.DialTLS("tcp", fmt.Sprintf("%s:%d", ub.hostname, ub.port), &tls.Config{InsecureSkipVerify: true})
 	if err != nil {
-		ub.logger.Error("error connecting to ldap server", zap.String("ldaphostname", ub.hostname), zap.Int("ldapport", ub.port))
+		ub.logger.Error("CANNOT CONNECT TO LDAP SERVER", zap.String("LDAPHOSTNAME", ub.hostname), zap.Int("LDAPPORT", ub.port))
 		if !ub.isCached(ctx, username, password) {
-			err = pkg.NewUserBackendError(pkg.UserBackendErrorInvalidCredentials).WithMessage(fmt.Sprintf("user %s not found in the cache", username))
+			err = pkg.NewUserBackendError(pkg.UserBackendErrorInvalidCredentials).WithMessage(fmt.Sprintf("USER %s NOT FOUND IN THE CACHE", username))
 			ub.logger.Error("", zap.Error(err))
 			return err
 		}
 
-		ub.logger.Info("user authenticated using the cache", zap.String("username", username))
+		ub.logger.Info("USER AUTHENTICATED USING THE CACHE", zap.String("USERNAME", username))
 		return nil
 	}
 	defer l.Close()
 
-	err = ub.doBind(ctx, l, ub.bindUsername, ub.bindPassword)
+	err = ub.doServiceBind(ctx, l, ub.bindUsername, ub.bindPassword)
 	if err != nil {
+		ub.logger.Error("CANNOT BIND SERVICE ACCOUNT", zap.Error(err), zap.String("ACCOUNT", ub.bindUsername))
 		return err
 	}
 
@@ -243,19 +281,20 @@ func (ub *userBackend) Authenticate(ctx context.Context, username, password stri
 
 	sr, err := l.Search(searchRequest)
 	if err != nil {
-		ub.logger.Error("search failed", zap.String("search", searchTerm))
+		ub.logger.Error("SEARCH FAILED", zap.String("SEARCH", searchTerm))
 		if !ub.isCached(ctx, username, password) {
-			err = pkg.NewUserBackendError(pkg.UserBackendErrorInvalidCredentials).WithMessage(fmt.Sprintf("user %s not found in the cache", username))
+			err = pkg.NewUserBackendError(pkg.UserBackendErrorInvalidCredentials).WithMessage(fmt.Sprintf("USER %s NOT FOUND IN THE CACHE", username))
 			ub.logger.Error("", zap.Error(err))
 			return err
 		}
 
-		ub.logger.Info("user authenticated using the cache", zap.String("username", username))
+		ub.logger.Info("USER AUTHENTICATED USING THE CACHE", zap.String("USERNAME", username))
 		return nil
 	}
 
 	if len(sr.Entries) == 0 {
-		err := pkg.NewUserBackendError(pkg.UserBackendErrorNotFound).WithMessage(fmt.Sprintf("user %s not found", username))
+		err := pkg.NewUserBackendError(pkg.UserBackendErrorNotFound).WithMessage(fmt.Sprintf("USER %s NOT FOUND", username))
+		ub.logger.Info("USER NOT FOUND IN LDAP", zap.Error(err), zap.String("USERNAME", username))
 		return err
 	}
 
@@ -264,6 +303,7 @@ func (ub *userBackend) Authenticate(ctx context.Context, username, password stri
 	// Bind as the user to verify her password
 	err = ub.doBind(ctx, l, userdn, password)
 	if err != nil {
+		ub.logger.Error("CANNOT BIND USER", zap.Error(err), zap.String("USERDN", userdn))
 		return err
 	}
 

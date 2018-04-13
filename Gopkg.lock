@@ -8,16 +8,10 @@
   revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
 
 [[projects]]
-  name = "github.com/dgrijalva/jwt-go"
-  packages = ["."]
-  revision = "06ea1031745cb8b3dab3f6a236daf2b0aa468b7e"
-  version = "v3.2.0"
-
-[[projects]]
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
-  revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
-  version = "v1.4.7"
+  revision = "836bfd95fecc0f1511dd66bdbf2b5b61ab8b00b6"
+  version = "v1.2.11"
 
 [[projects]]
   name = "github.com/golang/protobuf"
@@ -32,7 +26,7 @@
   version = "v1.3.0"
 
 [[projects]]
-  branch = "master"
+  branch = "appveyor"
   name = "github.com/hashicorp/hcl"
   packages = [
     ".",
@@ -46,7 +40,7 @@
     "json/scanner",
     "json/token"
   ]
-  revision = "f40e974e75af4e271d97ce0fc917af5898ae7bda"
+  revision = "0eac4d39863bc0a8911f7565cc20ca53aa000fb4"
 
 [[projects]]
   name = "github.com/magiconair/properties"
@@ -167,12 +161,6 @@
   version = "v1.7.1"
 
 [[projects]]
-  branch = "master"
-  name = "golang.org/x/sys"
-  packages = ["unix"]
-  revision = "378d26f46672a356c46195c28f61bdb4c0a781dd"
-
-[[projects]]
   name = "golang.org/x/text"
   packages = [
     "internal/gen",
@@ -206,6 +194,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "cf38993e8dfed54946054509b6318c5664d5c04268e10bd81ddeb31de13a94b4"
+  inputs-digest = "b4214a1825ca172ece5fd3f6b1d961673e365282852e583eec856c18137acfcd"
   solver-name = "gps-cdcl"
   solver-version = 1
