@@ -34,6 +34,7 @@ func main() {
 	gc.Add("ldap-cache-ttl", 86400, "LDAP cache TTL.")
 	gc.Add("safety-sleep", 5, "Seconds to pause requests on authentication failure.")
 	gc.Add("admin-secret", "bar", "secreto to access admin APIs for cache manipulation.")
+	gc.Add("salt", "foo", "salt to hash passwords.")
 	gc.BindFlags()
 	gc.ReadConfig()
 

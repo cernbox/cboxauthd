@@ -2,7 +2,7 @@ package ldapuserbackend
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/sha256"
 	"crypto/tls"
 	"fmt"
 	"github.com/cernbox/cboxauthd/pkg"
@@ -26,6 +26,7 @@ type Options struct {
 	SleepPause   int
 	Logger       *zap.Logger
 	TTL          int
+	Salt         string
 }
 
 func (opt *Options) init() {
@@ -49,6 +50,10 @@ func (opt *Options) init() {
 	if opt.SleepPause == 0 {
 		opt.SleepPause = 5 // seconds
 	}
+
+	if opt.Salt == "" {
+		opt.Salt = "foo"
+	}
 }
 
 func New(opt *Options) pkg.UserBackend {
@@ -68,6 +73,7 @@ func New(opt *Options) pkg.UserBackend {
 		reqTimeout:   time.Second * time.Duration(opt.ReqTimeout),
 		sleepPause:   time.Second * time.Duration(opt.SleepPause),
 		ttl:          time.Second * time.Duration(opt.TTL),
+		salt:         opt.Salt,
 		cache:        &sync.Map{},
 	}
 }
@@ -83,6 +89,7 @@ type userBackend struct {
 	reqTimeout   time.Duration
 	ttl          time.Duration
 	sleepPause   time.Duration
+	salt         string
 
 	cache *sync.Map
 }
@@ -113,8 +120,9 @@ func (ub *userBackend) DumpCache(ctx context.Context) (map[string]int64, error) 
 	return items, nil
 }
 func (ub *userBackend) getKey(ctx context.Context, username, password string) string {
-	h := md5.New()
-	_, err := io.WriteString(h, password)
+	h := sha256.New()
+	saltedPassword := password + ub.salt
+	_, err := io.WriteString(h, saltedPassword)
 	if err != nil {
 		ub.logger.Error("CANNOT COMPUTE HASH", zap.Error(err))
 		panic(err)
