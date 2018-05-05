@@ -57,14 +57,12 @@ func main() {
 
 	router := http.NewServeMux()
 	authHandler := handlers.BasicAuthOnly(logger, ub, gc.GetInt("safety-sleep"))
-	dumpHandler := handlers.AdminCheck(logger, gc.GetString("admin-secret"), handlers.DumpCache(logger, ub))
-	expireHandler := handlers.AdminCheck(logger, gc.GetString("admin-secret"), handlers.ExpireCacheEntry(logger, ub))
+	expireHandler := handlers.AdminCheck(logger, gc.GetString("admin-secret"), handlers.ClearCache(logger, ub))
 	setHandler := handlers.AdminCheck(logger, gc.GetString("admin-secret"), handlers.SetExpiration(logger, ub))
 
 	router.Handle("/api/v1/auth", authHandler)
-	router.Handle("/api/v1/cache/dump", dumpHandler)
-	router.Handle("/api/v1/cache/expire", expireHandler)     // expire?key=john:hash
-	router.Handle("/api/v1/cache/setexpiration", setHandler) // setexpiration?key=john:hash&expiration=1522739593
+	router.Handle("/api/v1/cache/clear", expireHandler)      //
+	router.Handle("/api/v1/cache/setexpiration", setHandler) // ?expiration=1522739593
 	router.Handle("/metrics", promhttp.Handler())
 
 	loggedRouter := gologger.GetLoggedHTTPHandler(gc.GetString("http-log"), router)

@@ -32,7 +32,6 @@ func (sr UserBackendError) Error() string {
 
 type UserBackend interface {
 	Authenticate(ctx context.Context, username, password string) error
-	DumpCache(ctx context.Context) (map[string]int64, error)
-	SetExpiration(ctx context.Context, key string, expiration int64)
-	DeleteCacheEntry(ctx context.Context, key string)
+	SetExpiration(ctx context.Context, expiration int64) error
+	ClearCache(ctx context.Context)
 }

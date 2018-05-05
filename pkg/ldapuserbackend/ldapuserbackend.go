@@ -94,7 +94,7 @@ type userBackend struct {
 	cache *sync.Map
 }
 
-func (ub *userBackend) DumpCache(ctx context.Context) (map[string]int64, error) {
+func (ub *userBackend) getEntries(ctx context.Context) (map[string]int64, error) {
 	maxNumEntries := 1000000000 // 1 million
 	items := map[string]int64{}
 	ub.cache.Range(func(key interface{}, val interface{}) bool {
@@ -162,17 +162,24 @@ func (ub *userBackend) isCached(ctx context.Context, username, password string) 
 	return true
 }
 
-func (ub *userBackend) DeleteCacheEntry(ctx context.Context, key string) {
-	ub.cache.Delete(key)
+func (ub *userBackend) ClearCache(ctx context.Context) {
+	ub.cache.Range(func(key interface{}, val interface{}) bool {
+		ub.cache.Delete(key)
+		return true
+	})
+
 }
 
-func (ub *userBackend) SetExpiration(ctx context.Context, key string, expiration int64) {
-	_, ok := ub.cache.Load(key)
-	if !ok {
-		ub.sleep()
-		return
+func (ub *userBackend) SetExpiration(ctx context.Context, expiration int64) error {
+	entries, err := ub.getEntries(ctx)
+	if err != nil {
+		return err
 	}
-	ub.cache.Store(key, expiration)
+
+	for k, _ := range entries {
+		ub.cache.Store(k, expiration)
+	}
+	return nil
 }
 
 func (ub *userBackend) storeInCache(ctx context.Context, username, password string) {

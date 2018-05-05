@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -14,7 +13,7 @@ import (
 
 func AdminCheck(logger *zap.Logger, secret string, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		s := r.URL.Query().Get("secret")
+		s := r.Header.Get("X-Secret")
 		if s == "" {
 			logger.Info("SECRET IS EMPTY")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -29,7 +28,7 @@ func AdminCheck(logger *zap.Logger, secret string, h http.Handler) http.Handler 
 	})
 }
 
-func ExpireCacheEntry(logger *zap.Logger, ub pkg.UserBackend) http.Handler {
+func ClearCache(logger *zap.Logger, ub pkg.UserBackend) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := r.URL.Query().Get("key")
 		if key == "" {
@@ -37,7 +36,7 @@ func ExpireCacheEntry(logger *zap.Logger, ub pkg.UserBackend) http.Handler {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		ub.DeleteCacheEntry(r.Context(), key)
+		ub.ClearCache(r.Context())
 		return
 	})
 
@@ -45,13 +44,6 @@ func ExpireCacheEntry(logger *zap.Logger, ub pkg.UserBackend) http.Handler {
 
 func SetExpiration(logger *zap.Logger, ub pkg.UserBackend) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		key := r.URL.Query().Get("key")
-		if key == "" {
-			logger.Info("KEY IS EMPTY")
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
 		expirationString := r.URL.Query().Get("expiration")
 		if expirationString == "" {
 			logger.Info("EXPIRATION IS EMPTY")
@@ -65,29 +57,12 @@ func SetExpiration(logger *zap.Logger, ub pkg.UserBackend) http.Handler {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		ub.SetExpiration(r.Context(), key, int64(expiration))
+		ub.SetExpiration(r.Context(), int64(expiration))
 		return
 	})
 
 }
 
-func DumpCache(logger *zap.Logger, ub pkg.UserBackend) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		items, err := ub.DumpCache(r.Context())
-		if err != nil {
-			logger.Error("", zap.Error(err))
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		body, err := json.Marshal(items)
-		if err != nil {
-			logger.Error("", zap.Error(err))
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		w.Write(body)
-	})
-}
 func BasicAuthOnly(logger *zap.Logger, userBackend pkg.UserBackend, sleepPause int) http.Handler {
 	validBasicAuthsCounter := prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "valid_auths_basic",
