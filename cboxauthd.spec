@@ -4,7 +4,7 @@
 
 Name: cboxauthd
 Summary: Authentication daemon for CERNBox.
-Version: 1.1.3
+Version: 1.2.0
 Release: 1%{?dist}
 License: AGPLv3
 BuildRoot: %{_tmppath}/%{name}-buildroot
@@ -54,6 +54,8 @@ rm -rf %buildroot/
 
 
 %changelog
+* Sun May 06 2018 Hugo Gonzalez Labrador <hugo.gonzalez.labrador@cern.ch> 1.2.0
+- Remove dumper handler and modify expire and clear handlers 
 * Wed May 02 2018 Hugo Gonzalez Labrador <hugo.gonzalez.labrador@cern.ch> 1.1.3
 - Replace hashing algo: md5 to sha256 with salt
 * Fri Apr 12 2018 Hugo Gonzalez Labrador <hugo.gonzalez.labrador@cern.ch> 1.1.2
