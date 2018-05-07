@@ -30,12 +30,6 @@ func AdminCheck(logger *zap.Logger, secret string, h http.Handler) http.Handler 
 
 func ClearCache(logger *zap.Logger, ub pkg.UserBackend) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		key := r.URL.Query().Get("key")
-		if key == "" {
-			logger.Info("KEY IS EMPTY")
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
 		ub.ClearCache(r.Context())
 		return
 	})

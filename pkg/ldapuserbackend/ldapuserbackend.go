@@ -163,10 +163,13 @@ func (ub *userBackend) isCached(ctx context.Context, username, password string) 
 }
 
 func (ub *userBackend) ClearCache(ctx context.Context) {
+	counter := 0
 	ub.cache.Range(func(key interface{}, val interface{}) bool {
 		ub.cache.Delete(key)
+		counter++
 		return true
 	})
+	ub.logger.Info("CACHE CLEARED", zap.Int("ITEMS", counter))
 
 }
 
@@ -179,6 +182,9 @@ func (ub *userBackend) SetExpiration(ctx context.Context, expiration int64) erro
 	for k, _ := range entries {
 		ub.cache.Store(k, expiration)
 	}
+
+	ub.logger.Info("EXPIRATION SET", zap.Int("ITEMS", len(entries)))
+
 	return nil
 }
 
@@ -186,9 +192,11 @@ func (ub *userBackend) storeInCache(ctx context.Context, username, password stri
 	key := ub.getKey(ctx, username, password)
 	expiresIn := time.Now().Add(ub.ttl).Unix()
 	ub.cache.Store(key, expiresIn)
+	ub.logger.Info("CACHE SET FOR USER", zap.String("USERNAME", username))
 }
 
 func (ub *userBackend) sleep() {
+	ub.logger.Info("SLEEPING")
 	time.Sleep(ub.sleepPause)
 }
 
