@@ -4,7 +4,7 @@
 
 Name: cboxauthd
 Summary: Authentication daemon for CERNBox.
-Version: 1.2.1
+Version: 1.2.2
 Release: 1%{?dist}
 License: AGPLv3
 BuildRoot: %{_tmppath}/%{name}-buildroot
@@ -54,6 +54,8 @@ rm -rf %buildroot/
 
 
 %changelog
+* Thu Aug 20 2020 Ishank Arora <ishank.arora@cern.ch> 1.2.2
+* Use cached credentials instead of binding
 * Mon May 07 2018 Hugo Gonzalez Labrador <hugo.gonzalez.labrador@cern.ch> 1.2.1
 - Fix clear cache handler
 * Sun May 06 2018 Hugo Gonzalez Labrador <hugo.gonzalez.labrador@cern.ch> 1.2.0
