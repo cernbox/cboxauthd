@@ -5,28 +5,30 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"fmt"
-	"github.com/cernbox/cboxauthd/pkg"
-	"go.uber.org/zap"
-	"gopkg.in/ldap.v2"
 	"io"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/cernbox/cboxauthd/pkg"
+	"go.uber.org/zap"
+	"gopkg.in/ldap.v2"
 )
 
 type Options struct {
-	Hostname     string
-	Port         int
-	BaseDN       string
-	Filter       string
-	BindUsername string
-	BindPassword string
-	ConTimeout   int
-	ReqTimeout   int
-	SleepPause   int
-	Logger       *zap.Logger
-	TTL          int
-	Salt         string
+	Hostname      string
+	Port          int
+	BaseDN        string
+	Filter        string
+	BindUsername  string
+	BindPassword  string
+	ConTimeout    int
+	ReqTimeout    int
+	SleepPause    int
+	Logger        *zap.Logger
+	TTL           int
+	CacheValidity int
+	Salt          string
 }
 
 func (opt *Options) init() {
@@ -47,6 +49,10 @@ func (opt *Options) init() {
 		opt.TTL = 86400 // one day
 	}
 
+	if opt.CacheValidity == 0 {
+		opt.CacheValidity = 300 // five minutes
+	}
+
 	if opt.SleepPause == 0 {
 		opt.SleepPause = 5 // seconds
 	}
@@ -63,33 +69,35 @@ func New(opt *Options) pkg.UserBackend {
 	ldap.DefaultTimeout = time.Second * time.Duration(opt.ConTimeout)
 
 	return &userBackend{
-		hostname:     opt.Hostname,
-		port:         opt.Port,
-		baseDN:       opt.BaseDN,
-		filter:       opt.Filter,
-		bindUsername: opt.BindUsername,
-		bindPassword: opt.BindPassword,
-		logger:       opt.Logger,
-		reqTimeout:   time.Second * time.Duration(opt.ReqTimeout),
-		sleepPause:   time.Second * time.Duration(opt.SleepPause),
-		ttl:          time.Second * time.Duration(opt.TTL),
-		salt:         opt.Salt,
-		cache:        &sync.Map{},
+		hostname:      opt.Hostname,
+		port:          opt.Port,
+		baseDN:        opt.BaseDN,
+		filter:        opt.Filter,
+		bindUsername:  opt.BindUsername,
+		bindPassword:  opt.BindPassword,
+		logger:        opt.Logger,
+		reqTimeout:    time.Second * time.Duration(opt.ReqTimeout),
+		sleepPause:    time.Second * time.Duration(opt.SleepPause),
+		ttl:           time.Second * time.Duration(opt.TTL),
+		cacheValidity: time.Second * time.Duration(opt.CacheValidity),
+		salt:          opt.Salt,
+		cache:         &sync.Map{},
 	}
 }
 
 type userBackend struct {
-	hostname     string
-	port         int
-	baseDN       string
-	filter       string
-	bindUsername string
-	bindPassword string
-	logger       *zap.Logger
-	reqTimeout   time.Duration
-	ttl          time.Duration
-	sleepPause   time.Duration
-	salt         string
+	hostname      string
+	port          int
+	baseDN        string
+	filter        string
+	bindUsername  string
+	bindPassword  string
+	logger        *zap.Logger
+	reqTimeout    time.Duration
+	ttl           time.Duration
+	cacheValidity time.Duration
+	sleepPause    time.Duration
+	salt          string
 
 	cache *sync.Map
 }
@@ -100,18 +108,15 @@ func (ub *userBackend) getEntries(ctx context.Context) (map[string]int64, error)
 	ub.cache.Range(func(key interface{}, val interface{}) bool {
 		if len(items) > maxNumEntries {
 			panic(fmt.Sprintf("ERROR DUMPING THE CACHE BECAUSE IT CONTAINS MORE THAN %d ITEMS", maxNumEntries))
-			return false
 		}
 		keyString, ok := key.(string)
 		if !ok {
 			panic(fmt.Sprintf("ERROR DUMPING CACHE BECAUSE KEY IS NOT A STRING: KEY=%+v", key))
-			return false
 		}
 
 		valInt64, ok := val.(int64)
 		if !ok {
 			panic(fmt.Sprintf("ERROR DUMPING CACHE BECAUSE VAL IS NOT A INT64. VAL=%+v", val))
-			return false
 		}
 
 		items[keyString] = valInt64
@@ -133,7 +138,7 @@ func (ub *userBackend) getKey(ctx context.Context, username, password string) st
 	return key
 }
 
-func (ub *userBackend) isCached(ctx context.Context, username, password string) bool {
+func (ub *userBackend) checkCachedKey(ctx context.Context, username, password string, ttl time.Duration, deleteExpired bool) bool {
 	// the username can come only as gonzalhu, not as fully qualified.
 	if !strings.HasSuffix(username, ub.baseDN) {
 		username = fmt.Sprintf("CN=%s,%s", username, ub.baseDN)
@@ -141,25 +146,33 @@ func (ub *userBackend) isCached(ctx context.Context, username, password string) 
 	key := ub.getKey(ctx, username, password)
 	val, ok := ub.cache.Load(key)
 	if !ok {
-		ub.sleep()
 		return false
 	}
 
-	expiresIn, ok := val.(int64)
+	cachedTimestamp, ok := val.(int64)
 	if !ok {
 		ub.sleep()
 		return false
 	}
+	expiration := time.Unix(cachedTimestamp, 0).Add(ttl).Unix()
 
-	now := time.Now().Unix()
-	if now > expiresIn {
-		ub.sleep()
-		// delete expired entry
-		ub.cache.Delete(key)
+	if expiration < time.Now().Unix() {
+		if deleteExpired {
+			// delete expired entry
+			ub.cache.Delete(key)
+		}
 		return false
 	}
 
 	return true
+}
+
+func (ub *userBackend) isCached(ctx context.Context, username, password string) bool {
+	return ub.checkCachedKey(ctx, username, password, ub.ttl, true)
+}
+
+func (ub *userBackend) isCacheValid(ctx context.Context, username, password string) bool {
+	return ub.checkCachedKey(ctx, username, password, ub.cacheValidity, false)
 }
 
 func (ub *userBackend) ClearCache(ctx context.Context) {
@@ -170,7 +183,6 @@ func (ub *userBackend) ClearCache(ctx context.Context) {
 		return true
 	})
 	ub.logger.Info("CACHE CLEARED", zap.Int("ITEMS", counter))
-
 }
 
 func (ub *userBackend) SetExpiration(ctx context.Context, expiration int64) error {
@@ -179,8 +191,11 @@ func (ub *userBackend) SetExpiration(ctx context.Context, expiration int64) erro
 		return err
 	}
 
-	for k, _ := range entries {
-		ub.cache.Store(k, expiration)
+	// We store the time of creation in the map. So to set the expiration to a
+	// particular value, we subtract the ttl from that.
+	creationTime := time.Unix(expiration, 0).Add(-ub.ttl).Unix()
+	for k := range entries {
+		ub.cache.Store(k, creationTime)
 	}
 
 	ub.logger.Info("EXPIRATION SET", zap.Int("ITEMS", len(entries)))
@@ -190,8 +205,7 @@ func (ub *userBackend) SetExpiration(ctx context.Context, expiration int64) erro
 
 func (ub *userBackend) storeInCache(ctx context.Context, username, password string) {
 	key := ub.getKey(ctx, username, password)
-	expiresIn := time.Now().Add(ub.ttl).Unix()
-	ub.cache.Store(key, expiresIn)
+	ub.cache.Store(key, time.Now().Unix())
 	ub.logger.Info("CACHE SET FOR USER", zap.String("USERNAME", username))
 }
 
@@ -213,7 +227,7 @@ func (ub *userBackend) doServiceBind(ctx context.Context, l *ldap.Conn, username
 	// github.com/go-ldap/ldap/issues/93
 	if len(password) == 0 {
 		ub.sleep()
-		err := pkg.NewUserBackendError(pkg.UserBackendErrorInvalidCredentials).WithMessage(fmt.Sprintf("PASSWORD IS EMPTY", username))
+		err := pkg.NewUserBackendError(pkg.UserBackendErrorInvalidCredentials).WithMessage("PASSWORD IS EMPTY, USERNAME: " + username)
 		return err
 	}
 
@@ -250,7 +264,7 @@ func (ub *userBackend) doBind(ctx context.Context, l *ldap.Conn, username, passw
 	// github.com/go-ldap/ldap/issues/93
 	if len(password) == 0 {
 		ub.sleep()
-		err := pkg.NewUserBackendError(pkg.UserBackendErrorInvalidCredentials).WithMessage(fmt.Sprintf("PASSWORD IS EMPTY", username))
+		err := pkg.NewUserBackendError(pkg.UserBackendErrorInvalidCredentials).WithMessage("PASSWORD IS EMPTY, USERNAME: " + username)
 		return err
 	}
 
@@ -272,6 +286,11 @@ func (ub *userBackend) doBind(ctx context.Context, l *ldap.Conn, username, passw
 }
 
 func (ub *userBackend) Authenticate(ctx context.Context, username, password string) error {
+	if ub.isCacheValid(ctx, username, password) {
+		ub.logger.Info("USING CACHED KEY FOR USER", zap.String("USERNAME", username))
+		return nil
+	}
+
 	l, err := ldap.DialTLS("tcp", fmt.Sprintf("%s:%d", ub.hostname, ub.port), &tls.Config{InsecureSkipVerify: true})
 	if err != nil {
 		ub.logger.Error("CANNOT CONNECT TO LDAP SERVER", zap.String("LDAPHOSTNAME", ub.hostname), zap.Int("LDAPPORT", ub.port))
